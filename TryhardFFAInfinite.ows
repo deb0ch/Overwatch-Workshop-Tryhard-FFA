@@ -1,0 +1,853 @@
+settings
+{
+	main
+	{
+		Description: "Tryhard FFA - by deb0ch https://redd.it/fuwy67"
+	}
+
+	lobby
+	{
+		Allow Players Who Are In Queue: Yes
+		Max Spectators: 4
+		Return To Lobby: Never
+	}
+
+	modes
+	{
+		Deathmatch
+		{
+			Game Length In Minutes: 15
+			Score To Win: 50
+
+			enabled maps
+			{
+				Château Guillard
+			}
+		}
+
+		General
+		{
+			Game Mode Start: Immediately
+		}
+	}
+
+	heroes
+	{
+		General
+		{
+			Ashe
+			{
+				Ultimate Ability B.O.B.: Off
+			}
+
+			Baptiste
+			{
+				Immortality Field: Off
+			}
+
+			Bastion
+			{
+				Reconfigure: Off
+				Ultimate Ability Configuration: Tank: Off
+			}
+
+			Doomfist
+			{
+				Ultimate Ability Meteor Strike: Off
+			}
+
+			Hanzo
+			{
+				Ultimate Ability Dragonstrike: Off
+			}
+
+			Lúcio
+			{
+				Ultimate Ability Sound Barrier: Off
+			}
+
+			McCree
+			{
+				Secondary Fire: Off
+				Ultimate Ability Deadeye: Off
+			}
+
+			Mei
+			{
+				Primary Fire: Off
+				Ultimate Ability Blizzard: Off
+			}
+
+			Mercy
+			{
+				Ultimate Generation - Combat Valkyrie: 500%
+				Ultimate Generation - Passive Valkyrie: 500%
+				Ultimate Generation Valkyrie: 500%
+			}
+
+			Pharah
+			{
+				Ultimate Ability Barrage: Off
+			}
+
+			Reaper
+			{
+				Ultimate Ability Death Blossom: Off
+			}
+
+			Soldier: 76
+			{
+				Ultimate Ability Tactical Visor: Off
+			}
+
+			Sombra
+			{
+				Ultimate Ability EMP: Off
+			}
+
+			Torbjörn
+			{
+				Deploy Turret: Off
+				Ultimate Ability Molten Core: Off
+			}
+
+			Zenyatta
+			{
+				Ultimate Ability Transcendence: Off
+			}
+
+			disabled heroes
+			{
+				Brigitte
+				D.Va
+				Junkrat
+				Moira
+				Orisa
+				Reinhardt
+				Roadhog
+				Sigma
+				Symmetra
+				Winston
+				Wrecking Ball
+				Zarya
+			}
+		}
+	}
+}
+
+variables
+{
+	global:
+		0: ScoreTime
+		1: AllowedHeroes
+		2: SleepTime
+		3: NumberOfLivingPlayers
+		11: EvilRailings
+		12: WorldObjects
+		13: WorldObjectScanIndex
+		14: JumpPadCooldown
+		15: WorldObjectsRenderQueue
+
+	player:
+		0: kill_history
+		1: death_history
+		16: JumpPadCooldown
+		26: venom_heal
+		29: rest_mode
+		36: rest_mode_sleep
+}
+
+subroutines
+{
+	0: SetScore
+}
+
+rule("Settings")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		"(seconds) Recent laps of time over which score is counted"
+		Set Global Variable(ScoreTime, 300);
+		"Idle time before Sleep mode kicks in"
+		Set Global Variable(SleepTime, 10);
+	}
+}
+
+rule("Assemble time")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Game In Progress == False;
+		Is Assembling Heroes == True;
+	}
+
+	actions
+	{
+		Set Match Time(1);
+	}
+}
+
+rule("Match time")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+		Is Assembling Heroes == False;
+	}
+
+	actions
+	{
+		Pause Match Time;
+		Set Match Time(0);
+	}
+}
+
+rule("Score - Global init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Scoring;
+		Disable Built-In Game Mode Completion;
+		Create HUD Text(All Players(All Teams), Null, Custom String("Score: 100 * kills / deaths (last {0} min)", Divide(Global Variable(
+			ScoreTime), 60), Null, Null), Null, Left, 0, White, White, White, Visible To and String, Default Visibility);
+	}
+}
+
+rule("Score - Player init")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Set Player Variable(Event Player, kill_history, Empty Array);
+		Set Player Variable(Event Player, death_history, Empty Array);
+		Create HUD Text(Event Player, Custom String("Kills: {0}", Count Of(Player Variable(Event Player, kill_history)), Null, Null),
+			Custom String("Player: {0}", Event Player, Null, Null), Custom String("Deaths: {0}", Count Of(Player Variable(Event Player,
+			death_history)), Null, Null), Left, 0, Red, Sky Blue, Yellow, Visible To and String, Default Visibility);
+	}
+}
+
+rule("Score - Kill count")
+{
+	event
+	{
+		Player Dealt Final Blow;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Modify Player Variable(Event Player, kill_history, Append To Array, Total Time Elapsed);
+	}
+}
+
+rule("Score - Death count")
+{
+	event
+	{
+		Player Died;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Modify Player Variable(Event Player, death_history, Append To Array, Total Time Elapsed);
+	}
+}
+
+rule("Score - Player joined")
+{
+	event
+	{
+		Player Joined Match;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Set Global Variable(NumberOfLivingPlayers, Number of Living Players(All Teams));
+	}
+}
+
+rule("Score - Player left")
+{
+	event
+	{
+		Player Left Match;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Set Global Variable(NumberOfLivingPlayers, Number of Living Players(All Teams));
+	}
+}
+
+rule("Score - Global update")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Number of Living Players(All Teams) != Global Variable(NumberOfLivingPlayers);
+	}
+
+	actions
+	{
+		Set Global Variable(NumberOfLivingPlayers, Number of Living Players(All Teams));
+		Set Player Variable(Event Player, kill_history, Filtered Array(Player Variable(Event Player, kill_history), Compare(Subtract(
+			Total Time Elapsed, Global Variable(ScoreTime)), <=, Current Array Element)));
+		Set Player Variable(Event Player, death_history, Filtered Array(Player Variable(Event Player, death_history), Compare(Subtract(
+			Total Time Elapsed, Global Variable(ScoreTime)), <=, Current Array Element)));
+		Call Subroutine(SetScore);
+	}
+}
+
+rule("Score - Set score")
+{
+	event
+	{
+		Subroutine;
+		SetScore;
+	}
+
+	actions
+	{
+		"Score = 100 x kills / (deaths + 1) (over recent laps of time)"
+		Set Player Score(Event Player, Divide(Multiply(Count Of(Player Variable(Event Player, kill_history)), 100), Multiply(1, Add(1,
+			Count Of(Player Variable(Event Player, death_history))))));
+	}
+}
+
+rule("Heal on kill")
+{
+	event
+	{
+		Player Dealt Final Blow;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Heal(Attacker, Null, Max Health(Attacker));
+	}
+}
+
+rule("Venom mine nerf")
+{
+	event
+	{
+		Player Dealt Damage;
+		All;
+		Widowmaker;
+	}
+
+	conditions
+	{
+		Event Damage == 2.880;
+		Player Variable(Victim, venom_heal) == 0;
+	}
+
+	actions
+	{
+		Start Heal Over Time(Victim, Null, 5, 15);
+		Set Player Variable(Victim, venom_heal, Last Heal Over Time ID);
+		Wait(5, Restart When True);
+		Set Player Variable(Victim, venom_heal, 0);
+	}
+}
+
+rule("Venom mine nerf - healthpacks")
+{
+	event
+	{
+		Player Received Healing;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Was Health Pack == True;
+		Player Variable(Event Player, venom_heal) != 0;
+	}
+
+	actions
+	{
+		Stop All Heal Over Time(Player Variable(Event Player, venom_heal));
+		Set Player Variable(Event Player, venom_heal, 0);
+	}
+}
+
+rule("Change Hero - Set allowed heroes")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Set Global Variable(AllowedHeroes, Empty Array);
+		Modify Global Variable(AllowedHeroes, Append To Array, Allowed Heroes(Event Player));
+	}
+}
+
+rule("Change Hero - On key press")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Is Dead(Event Player) != True;
+		Is Button Held(Event Player, Crouch) != True;
+	}
+
+	actions
+	{
+		Skip If(Or(Or(Has Status(Event Player, Asleep), Has Status(Event Player, Stunned)), Compare(Health(Event Player), <=, Divide(
+			Max Health(Event Player), 2))), 3);
+		Set Player Allowed Heroes(Event Player, Hero(Brigitte));
+		Wait(1.500, Ignore Condition);
+		Set Player Allowed Heroes(Event Player, Global Variable(AllowedHeroes));
+		Skip If(Compare(Health(Event Player), >, Divide(Max Health(Event Player), 2)), 1);
+		Small Message(Event Player, String("{0} {1}", Custom String("Low", Null, Null, Null), Custom String("Health", Null, Null, Null),
+			Null));
+	}
+}
+
+rule("Sleep mode: on")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Player Variable(Event Player, rest_mode) == True;
+		Is Dummy Bot(Event Player) != True;
+	}
+
+	actions
+	{
+		Set Status(Event Player, Null, Phased Out, 9999);
+		disabled Start Camera(Event Player, Add(Add(Add(Event Player, World Vector Of(Vector(0, 0.200, -0.050), Event Player, Rotation)), Multiply(
+			Up, 1.500)), Multiply(Facing Direction Of(Event Player), -2)), Add(Event Player, Multiply(Facing Direction Of(Event Player),
+			100)), 50);
+		Set Status(Event Player, Null, Hacked, 9999);
+		Disallow Button(Event Player, Primary Fire);
+		Disallow Button(Event Player, Secondary Fire);
+	}
+}
+
+rule("Sleep mode: off")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Player Variable(Event Player, rest_mode) == 0;
+	}
+
+	actions
+	{
+		Clear Status(Event Player, Phased Out);
+		Stop Camera(Event Player);
+		Clear Status(Event Player, Hacked);
+		Allow Button(Event Player, Primary Fire);
+		Allow Button(Event Player, Secondary Fire);
+	}
+}
+
+rule("Sleep mode: sleep")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Player Variable(Event Player, rest_mode) != True;
+		Is Dead(Event Player) == False;
+		Has Spawned(Event Player) == True;
+		Is Moving(Event Player) != True;
+		Is Firing Primary(Event Player) != True;
+		Is Firing Secondary(Event Player) != True;
+		Is Button Held(Event Player, Primary Fire) != True;
+		Is Button Held(Event Player, Secondary Fire) != True;
+	}
+
+	actions
+	{
+		Wait(Global Variable(SleepTime), Abort When False);
+		Set Player Variable(Event Player, rest_mode_sleep, True);
+		Set Player Variable(Event Player, rest_mode, True);
+		Small Message(Event Player, Custom String("Sleep Mode Enabled", Null, Null, Null));
+	}
+}
+
+rule("Sleep mode: wake up")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Player Variable(Event Player, rest_mode) == True;
+		Player Variable(Event Player, rest_mode_sleep) == True;
+		Is Moving(Event Player) == True;
+	}
+
+	actions
+	{
+		Set Player Variable(Event Player, rest_mode_sleep, False);
+		Set Player Variable(Event Player, rest_mode, 0);
+		Small Message(Event Player, Custom String("Sleep Mode Disabled", Null, Null, Null));
+	}
+}
+
+rule("Jump pads cooldowns")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Set Global Variable(JumpPadCooldown, 2.500);
+	}
+}
+
+rule("WorldObject - Insert Values")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Set Global Variable(WorldObjects, Empty Array);
+		Modify Global Variable(WorldObjects, Remove From Array By Index, 0);
+		Modify Global Variable(WorldObjects, Append To Array, Empty Array);
+		Modify Global Variable(WorldObjects, Append To Array, Empty Array);
+		Modify Global Variable(WorldObjects, Append To Array, Empty Array);
+		disabled Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(206.284, 9, 82.819));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(206.239, 9, 91.118));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(237.434, 2, 85.752));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(230.547, 2, 96.517));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(187.173, 2.249, 70.924));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(197.360, 1.500, 78.003));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(217.405, 3.400, 74.163));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(177.285, 1.248, 51.617));
+		Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(216.596, 3.249, 92.642));
+		disabled Modify Global Variable At Index(WorldObjects, 0, Append To Array, Vector(213.880, 9.249, 58.545));
+		Modify Global Variable At Index(WorldObjects, 0, Remove From Array By Index, 0);
+		Wait(0.250, Ignore Condition);
+	}
+}
+
+rule("WorldObject - Logic Scan Rate")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global Variable(WorldObjectScanIndex) == 0;
+	}
+
+	actions
+	{
+		Set Global Variable(WorldObjectScanIndex, 9);
+		Chase Global Variable At Rate(WorldObjectScanIndex, 0, 27, Destination and Rate);
+	}
+}
+
+rule("WorldObject - JumpPad - Logic")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Alive(Event Player) == True;
+		Player Variable(Event Player, JumpPadCooldown) <= Total Time Elapsed;
+		Is Button Held(Event Player, Crouch) == False;
+		disabled Is Button Held(Event Player, Jump) == True;
+		Is On Ground(Event Player) == False;
+		Value In Array(Value In Array(Global Variable(WorldObjects), 0), Global Variable(WorldObjectScanIndex)) != False;
+		Distance Between(Event Player, Value In Array(Value In Array(Global Variable(WorldObjects), 0), Global Variable(
+			WorldObjectScanIndex))) <= 2;
+	}
+
+	actions
+	{
+		Apply Impulse(Event Player, Up, 17, To World, Cancel Contrary Motion);
+		Play Effect(All Players(All Teams), Good Pickup Effect, Turquoise, Value In Array(Value In Array(Global Variable(WorldObjects), 0),
+			Global Variable(WorldObjectScanIndex)), 2);
+		Play Effect(All Players(All Teams), Debuff Impact Sound, White, Value In Array(Value In Array(Global Variable(WorldObjects), 0),
+			Global Variable(WorldObjectScanIndex)), 50);
+		Play Effect(All Players(All Teams), Ring Explosion, Turquoise, Add(Value In Array(Value In Array(Global Variable(WorldObjects), 0),
+			Global Variable(WorldObjectScanIndex)), Vector(0, 0, 0)), 2);
+		Play Effect(All Players(All Teams), Ring Explosion, Green, Add(Value In Array(Value In Array(Global Variable(WorldObjects), 0),
+			Global Variable(WorldObjectScanIndex)), Vector(0, 1, 0)), 3);
+		Play Effect(All Players(All Teams), Ring Explosion, Turquoise, Add(Value In Array(Value In Array(Global Variable(WorldObjects), 0),
+			Global Variable(WorldObjectScanIndex)), Vector(0, 2, 0)), 3.500);
+		Set Player Variable(Event Player, JumpPadCooldown, Add(Total Time Elapsed, Global Variable(JumpPadCooldown)));
+	}
+}
+
+rule("WorldObject - Render Queue")
+{
+	event
+	{
+		Player Joined Match;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(5, Ignore Condition);
+		Destroy All Effects;
+		Wait(0, Ignore Condition);
+		Set Global Variable(WorldObjectsRenderQueue, Global Variable(WorldObjects));
+	}
+}
+
+rule("WorldObject - JumpPad - Visuals")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Value In Array(Value In Array(Global Variable(WorldObjectsRenderQueue), 0), 0) != False;
+	}
+
+	actions
+	{
+		Skip If(Not(Value In Array(Value In Array(Global Variable(WorldObjectsRenderQueue), 0), 0)), 3);
+		Create Effect(All Players(All Teams), Ring, Turquoise, Value In Array(Value In Array(Global Variable(WorldObjectsRenderQueue), 0),
+			0), 0.600, None);
+		Create Effect(All Players(All Teams), Ring, Green, Value In Array(Value In Array(Global Variable(WorldObjectsRenderQueue), 0), 0),
+			0.550, None);
+		Create Effect(All Players(All Teams), Ring, Green, Value In Array(Value In Array(Global Variable(WorldObjectsRenderQueue), 0), 0),
+			0.100, None);
+		Wait(0.016, Ignore Condition);
+		Modify Global Variable At Index(WorldObjectsRenderQueue, 0, Remove From Array By Index, 0);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Railings - Chateau Guillard")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Current Map == Map(Château Guillard);
+	}
+
+	actions
+	{
+		Set Global Variable(EvilRailings, Empty Array);
+		Modify Global Variable(EvilRailings, Append To Array, Empty Array);
+		Modify Global Variable(EvilRailings, Append To Array, Empty Array);
+		Modify Global Variable(EvilRailings, Append To Array, Empty Array);
+		Modify Global Variable(EvilRailings, Append To Array, Empty Array);
+		Modify Global Variable At Index(EvilRailings, 0, Append To Array, Vector(215.667, 12.455, 49.398));
+		Modify Global Variable At Index(EvilRailings, 0, Append To Array, Vector(184.830, 8.455, 54.417));
+		Modify Global Variable At Index(EvilRailings, 1, Append To Array, Vector(184.830, 8.455, 54.417));
+		Modify Global Variable At Index(EvilRailings, 3, Append To Array, Vector(183.772, 6.455, 73.156));
+		Modify Global Variable At Index(EvilRailings, 1, Append To Array, Vector(202.817, 9.455, 81.049));
+		Modify Global Variable At Index(EvilRailings, 1, Append To Array, Vector(231.429, 10.635, 79.964));
+		Modify Global Variable At Index(EvilRailings, 1, Append To Array, Vector(222.945, 8.455, 86.580));
+		Modify Global Variable At Index(EvilRailings, 1, Append To Array, Vector(219.682, 8.455, 79.031));
+		Modify Global Variable At Index(EvilRailings, 2, Append To Array, Vector(219.212, 8.455, 79.429));
+		Modify Global Variable At Index(EvilRailings, 3, Append To Array, Vector(175.941, 10.808, 95.015));
+		Modify Global Variable At Index(EvilRailings, 0, Append To Array, Vector(179.804, 6.461, 86.583));
+		Modify Global Variable At Index(EvilRailings, 1, Append To Array, Vector(187.799, 6.518, 90.951));
+		Modify Global Variable At Index(EvilRailings, 0, Append To Array, Vector(199.425, 9.718, 109.210));
+		Modify Global Variable At Index(EvilRailings, 1, Append To Array, Vector(177.372, 8.956, 66.031));
+		Modify Global Variable At Index(EvilRailings, 2, Append To Array, Vector(227.555, 14.597, 67.059));
+		Modify Global Variable At Index(EvilRailings, 2, Append To Array, Vector(229.030, 4.216, 89.656));
+	}
+}
+
+rule("Breaking railings")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Entity Exists(Players In Slot(11, All Teams)) == False;
+		Count Of(Global Variable(EvilRailings)) != 0;
+	}
+
+	actions
+	{
+		Skip If(Entity Exists(Players In Slot(12, All Teams)), 10);
+		disabled Big Message(All Players(All Teams), Custom String("Wrecking Ball has arrived!", Null, Null, Null));
+		disabled Big Message(All Players(All Teams), Custom String("Destroying railings..", Null, Null, Null));
+		Create Dummy Bot(Hero(Wrecking Ball), All Teams, 11, Vector(0, 0, 0), Facing Direction Of(Players In Slot(0, All Teams)));
+		Wait(3, Ignore Condition);
+		Set Status(Players On Hero(Hero(Wrecking Ball), All Teams), Null, Phased Out, 9999);
+		Set Invisible(Players On Hero(Hero(Wrecking Ball), All Teams), All);
+		disabled Set Damage Received(Players On Hero(Hero(Wrecking Ball), All Teams), 0);
+		Set Move Speed(Players On Hero(Hero(Wrecking Ball), All Teams), 100);
+		disabled Set Respawn Max Time(Players On Hero(Hero(Wrecking Ball), All Teams), 10000);
+		Wait(1, Ignore Condition);
+		Skip If(Compare(Value In Array(Value In Array(Global Variable(EvilRailings), 0), 0), ==, 0), 14);
+		disabled Small Message(All Players(All Teams), Custom String("[@Wrecking-Ball]$: SUDO DESTROY --RAILING[{0}][{1}]", Count Of(
+			Global Variable(EvilRailings)), Count Of(Value In Array(Global Variable(EvilRailings), 0)), Null));
+		Respawn(Players On Hero(Hero(Wrecking Ball), All Teams));
+		Wait(1, Ignore Condition);
+		Press Button(Players On Hero(Hero(Wrecking Ball), All Teams), Ability 1);
+		Teleport(Players On Hero(Hero(Wrecking Ball), All Teams), Value In Array(Value In Array(Global Variable(EvilRailings), 0), 0));
+		Skip If(Compare(Count Of(Global Variable(EvilRailings)), !=, 4), 1);
+		Start Throttle In Direction(Players On Hero(Hero(Wrecking Ball), All Teams), Forward, 1, To World, Replace existing throttle,
+			Direction and Magnitude);
+		Skip If(Compare(Count Of(Global Variable(EvilRailings)), !=, 3), 1);
+		Start Throttle In Direction(Players On Hero(Hero(Wrecking Ball), All Teams), Right, 1, To World, Replace existing throttle,
+			Direction and Magnitude);
+		Skip If(Compare(Count Of(Global Variable(EvilRailings)), !=, 2), 1);
+		Start Throttle In Direction(Players On Hero(Hero(Wrecking Ball), All Teams), Backward, 1, To World, Replace existing throttle,
+			Direction and Magnitude);
+		Skip If(Compare(Count Of(Global Variable(EvilRailings)), !=, 1), 1);
+		Start Throttle In Direction(Players On Hero(Hero(Wrecking Ball), All Teams), Left, 1, To World, Replace existing throttle,
+			Direction and Magnitude);
+		Wait(1.700, Ignore Condition);
+		Stop Throttle In Direction(Players On Hero(Hero(Wrecking Ball), All Teams));
+		Abort If(Not(Is Hero Being Played(Hero(Wrecking Ball), All Teams)));
+		Modify Global Variable At Index(EvilRailings, 0, Remove From Array By Index, 0);
+		Skip If(Compare(Count Of(Value In Array(Global Variable(EvilRailings), 0)), !=, 0), 1);
+		Modify Global Variable(EvilRailings, Remove From Array By Index, 0);
+		Wait(0.016, Ignore Condition);
+		Loop If(Compare(Count Of(Global Variable(EvilRailings)), !=, 0));
+		Destroy Dummy Bot(All Teams, 11);
+		disabled Small Message(All Players(All Teams), Custom String("Railing purge complete.", Null, Null, Null));
+		disabled Wait(4, Ignore Condition);
+		disabled Small Message(All Players(All Teams), Custom String("He says, you're welcome  - Wrecking Ball", Null, Null, Null));
+		Set Global Variable(ScoreTime, 0);
+	}
+}
+
+disabled rule("Debug - bot init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Create Dummy Bot(Hero(Ana), All Teams, 6, Vector(206.084, 1.424, 73.433), Vector(0, 0, 0));
+	}
+}
+
+disabled rule("Debug - bot respawn")
+{
+	event
+	{
+		Player Dealt Final Blow;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Create Dummy Bot(Hero(Ana), All Teams, 6, Vector(206.084, 1.424, 73.433), Vector(0, 0, 0));
+	}
+}
+
+disabled rule("Doomfist shouldnt play FFA")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Create HUD Text(Filtered Array(All Players(All Teams), Compare(Hero Of(Event Player), ==, Hero(Doomfist))), Custom String(
+			"Nobody loves {0}. Reason: {2}", Event Player, Null, Hero Icon String(Hero(Doomfist))), Null, Null, Left, 0, White, White,
+			White, Visible To and String, Default Visibility);
+	}
+}
