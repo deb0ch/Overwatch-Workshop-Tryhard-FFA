@@ -138,23 +138,23 @@ settings
 variables
 {
 	global:
-		0: ScoreTime
-		1: AllowedHeroes
+		0: AllowedHeroes
+		1: ScoreTime
 		2: SleepTime
-		3: NumberOfLivingPlayers
-		11: EvilRailings
-		12: WorldObjects
-		13: WorldObjectScanIndex
-		14: JumpPadCooldown
-		15: WorldObjectsRenderQueue
+		3: JumpPadCooldown
+		4: EvilRailings
+		5: WorldObjects
+		6: WorldObjectScanIndex
+		7: WorldObjectsRenderQueue
+		8: NumberOfLivingPlayers
 
 	player:
 		0: kill_history
 		1: death_history
-		16: JumpPadCooldown
-		26: venom_heal
-		29: rest_mode
-		36: rest_mode_sleep
+		2: rest_mode
+		3: rest_mode_sleep
+		4: JumpPadCooldown
+		5: venom_heal
 }
 
 subroutines
