@@ -262,6 +262,7 @@ rule("Score - Kill count")
 	actions
 	{
 		Modify Player Variable(Event Player, kill_history, Append To Array, Total Time Elapsed);
+		Set Global Variable(NumberOfLivingPlayers, Number of Living Players(All Teams));
 	}
 }
 
@@ -277,6 +278,7 @@ rule("Score - Death count")
 	actions
 	{
 		Modify Player Variable(Event Player, death_history, Append To Array, Total Time Elapsed);
+		Set Global Variable(NumberOfLivingPlayers, Number of Living Players(All Teams));
 	}
 }
 
