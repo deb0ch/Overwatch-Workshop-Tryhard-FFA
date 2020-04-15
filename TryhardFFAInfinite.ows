@@ -768,7 +768,6 @@ rule("Railings - Do break")
 		Small Message(All Players(All Teams), Custom String("Railing purge complete.", Null, Null, Null));
 		Wait(4, Ignore Condition);
 		Small Message(All Players(All Teams), Custom String("He says, you're welcome  - Wrecking Ball", Null, Null, Null));
-		Set Global Variable(ScoreTime, 0);
 	}
 }
 
